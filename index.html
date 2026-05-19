@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem RAB Tambang Nikel (Basis PC 200)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { brand: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } } } }
+        }
+    </script>
+    <style>
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans antialiased selection:bg-brand-500 selection:text-white pb-12">
+
+    <div id="app" class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <header class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end border-b border-gray-300 pb-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 inline-block">
+                    <i class="fa-solid fa-layer-group mr-2 text-brand-600"></i> Smart Fleet & RAB Nikel
+                </h1>
+                <p class="text-brand-700 font-semibold text-sm mt-1">
+                    <i class="fa-solid fa-user-check mr-1"></i> Developed by: Muhammad Hasan
+                </p>
+                <p class="text-gray-500 mt-1">Simulasi komprehensif menggunakan <strong class="text-brand-600">PC 200</strong> sebagai alat produksi utama.</p>
+            </div>
+            <div class="mt-4 md:mt-0 flex flex-col items-end">
+                <div class="flex items-center text-lg font-bold text-brand-900 mb-2">
+                    <span class="text-sm text-gray-500 font-medium mr-3">Kurs Acuan:</span>
+                    <span class="mr-2">USD 1 = Rp</span>
+                    <input type="number" v-model.number="kurs" class="w-28 bg-white border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-brand-500 text-right">
+                </div>
+                <button @click="exportToExcel" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow transition flex items-center">
+                    <i class="fa-solid fa-file-excel mr-2"></i> Export ke Excel
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            
+            <div class="lg:col-span-2 space-y-6">
+                
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="bg-slate-50 px-5 py-3 border-b border-gray-200 font-semibold text-slate-700 flex justify-between items-center">
+                        <div><i class="fa-solid fa-globe mr-2"></i> 1. Asumsi Dasar & Target Waktu Kerja</div>
+                    </div>
+                    <div class="p-5 grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div class="col-span-2">
+                            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Target Produksi / Bln</label>
+                            <div class="relative">
+                                <input type="number" v-model.number="target" class="w-full rounded border-gray-300 px-3 py-2 border focus:ring-2 focus:ring-brand-500 bg-brand-50 font-bold text-lg">
+                                <span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 text-xs">Ton</span>
+                            </div>
+                        </div>
+                        <div class="col-span-2 md:col-span-1">
+                            <label class="block text-xs font-bold text-brand-700 uppercase mb-1">Harga BBM (Solar)</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-2 text-gray-500 text-xs">$</span>
+                                <input type="number" step="0.01" v-model.number="hargaBBM" class="w-full rounded border-brand-300 bg-brand-50 pl-6 pr-2 py-2 border focus:ring-2 focus:ring-brand-500 font-bold" title="Berlaku untuk semua alat">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Hari Kerja</label>
+                            <input type="number" v-model.number="hariKerja" class="w-full rounded border-gray-300 px-3 py-2 border focus:ring-2 focus:ring-brand-500 text-center">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Shift/Hari</label>
+                            <input type="number" v-model.number="shiftHari" class="w-full rounded border-gray-300 px-3 py-2 border focus:ring-2 focus:ring-brand-500 text-center">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Jam/Shift</label>
+                            <input type="number" v-model.number="jamShift" class="w-full rounded border-gray-300 px-3 py-2 border focus:ring-2 focus:ring-brand-500 text-center">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="bg-slate-50 px-5 py-3 border-b border-gray-200 font-semibold text-slate-700">
+                        <i class="fa-solid fa-gears mr-2"></i> 2. Parameter Armada Utama
+                    </div>
+                    <div class="p-5 space-y-5">
+                        
+                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 relative">
+                            <div class="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-1 rounded-bl-lg rounded-tr-lg">Basis PC 200</div>
+                            <h3 class="text-sm font-bold text-gray-700 mb-3 border-b pb-1"><i class="fa-solid fa-excavator mr-1"></i> Alat Gali / Muat (Production Exca)</h3>
+                            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                                <div class="col-span-2">
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Target Prod. 1 Unit (Ton/Shift)</label>
+                                    <input type="number" v-model.number="prodExcaShift" class="w-full rounded border-gray-300 px-3 py-2 border">
+                                </div>
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">Sewa/Bln (USD)</label><input type="number" v-model.number="sewaExca" class="w-full rounded border-gray-300 px-3 py-2 border"></div>
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">BBM (L/Jam)</label><input type="number" v-model.number="bbmExca" class="w-full rounded border-gray-300 px-3 py-2 border"></div>
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">Gaji Opr. (IDR)</label><input type="number" v-model.number="gajiOperator" class="w-full rounded border-gray-300 px-3 py-2 border"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <h3 class="text-sm font-bold text-gray-700 mb-3 border-b pb-1"><i class="fa-solid fa-truck-fast mr-1"></i> Alat Angkut (Dump Truck)</h3>
+                            <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">Jarak (km)</label><input type="number" v-model.number="jarak" class="w-full rounded border-gray-300 px-2 py-2 border text-center"></div>
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">Muatan (Ton)</label><input type="number" v-model.number="kapasitasDT" class="w-full rounded border-gray-300 px-2 py-2 border text-center"></div>
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">Antri/Muat(m)</label><input type="number" v-model.number="waktuMuat" class="w-full rounded border-gray-300 px-2 py-2 border text-center" title="Waktu muat dan tuang (menit)"></div>
+                                <div class="col-span-2">
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Kec. Isi / Kosong (km/jam)</label>
+                                    <div class="flex gap-1">
+                                        <input type="number" v-model.number="kecIsi" class="w-1/2 rounded border-gray-300 px-2 py-2 border text-center" title="Kecepatan Isi">
+                                        <input type="number" v-model.number="kecKosong" class="w-1/2 rounded border-gray-300 px-2 py-2 border text-center" title="Kecepatan Kosong">
+                                    </div>
+                                </div>
+                                <div><label class="block text-xs font-medium text-gray-600 mb-1">BBM DT (L/Jam)</label><input type="number" v-model.number="bbmDT" class="w-full rounded border-gray-300 px-2 py-2 border text-center"></div>
+                                <div class="col-span-3"><label class="block text-xs font-medium text-gray-600 mb-1">Sewa DT / Unit / Bulan (USD)</label><input type="number" v-model.number="sewaDT" class="w-full rounded border-gray-300 px-3 py-2 border"></div>
+                                <div class="col-span-3"><label class="block text-xs font-medium text-gray-600 mb-1">Gaji Driver / Orang / Bulan (IDR)</label><input type="number" v-model.number="gajiDriver" class="w-full rounded border-gray-300 px-3 py-2 border"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="bg-slate-50 px-5 py-3 border-b border-gray-200 font-semibold text-slate-700 flex justify-between items-center">
+                        <div><i class="fa-solid fa-bulldozer mr-2"></i> 3. Armada Support (Diusulkan Manual)</div>
+                        <button @click="tambahAlatSupport" class="bg-brand-500 hover:bg-brand-600 text-white text-xs px-3 py-1.5 rounded transition">
+                            <i class="fa-solid fa-plus mr-1"></i> Tambah Alat
+                        </button>
+                    </div>
+                    <div class="p-5">
+                        <div class="hidden md:flex text-[11px] font-bold text-gray-500 uppercase mb-2 px-2">
+                            <div class="w-2/5">Jenis Alat Berat</div>
+                            <div class="w-1/5 text-center">Jml Unit</div>
+                            <div class="w-1/5 text-center">Sewa/Bln (USD)</div>
+                            <div class="w-1/5 text-center">BBM (L/Jam)</div>
+                            <div class="w-8"></div>
+                        </div>
+
+                        <div v-for="(alat, index) in supportFleet" :key="index" class="flex flex-col md:flex-row gap-2 mb-2 bg-gray-50 md:bg-transparent p-3 md:p-0 rounded border md:border-none border-gray-200">
+                            <div class="w-full md:w-2/5"><input type="text" v-model="alat.nama" placeholder="Nama Alat" class="w-full rounded border-gray-300 px-3 py-1.5 text-sm border"></div>
+                            <div class="w-full md:w-1/5 flex items-center"><span class="md:hidden text-xs w-24">Jumlah:</span><input type="number" v-model.number="alat.qty" class="w-full rounded border-gray-300 px-3 py-1.5 text-sm border text-center"></div>
+                            <div class="w-full md:w-1/5 flex items-center"><span class="md:hidden text-xs w-24">Sewa ($):</span><input type="number" v-model.number="alat.sewa" class="w-full rounded border-gray-300 px-3 py-1.5 text-sm border text-center"></div>
+                            <div class="w-full md:w-1/5 flex items-center"><span class="md:hidden text-xs w-24">BBM (L/J):</span><input type="number" v-model.number="alat.bbm" class="w-full rounded border-gray-300 px-3 py-1.5 text-sm border text-center"></div>
+                            <button @click="hapusAlatSupport(index)" class="text-red-500 hover:text-red-700 py-1 md:w-8 text-center"><i class="fa-solid fa-times"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="bg-slate-50 px-5 py-3 border-b border-gray-200 font-semibold text-slate-700 flex justify-between items-center">
+                        <div><i class="fa-solid fa-money-bill-wave mr-2"></i> 4. Biaya Ekstra (G&A, OB Removal, dll)</div>
+                        <button @click="tambahBiaya" class="bg-gray-800 hover:bg-gray-900 text-white text-xs px-3 py-1.5 rounded transition"><i class="fa-solid fa-plus mr-1"></i> Biaya</button>
+                    </div>
+                    <div class="p-5">
+                        <div v-for="(item, index) in biayaTambahan" :key="index" class="flex flex-col sm:flex-row gap-2 mb-2 items-center bg-gray-50 p-2 rounded border border-gray-200 sm:bg-transparent sm:p-0 sm:border-none">
+                            <input type="text" v-model="item.nama" placeholder="Nama Biaya" class="flex-grow w-full rounded border-gray-300 px-3 py-1.5 text-sm border">
+                            <input type="number" v-model.number="item.nominal" placeholder="Nominal" class="w-full sm:w-1/3 rounded border-gray-300 px-3 py-1.5 text-sm border">
+                            <select v-model="item.mataUang" class="w-full sm:w-1/4 rounded border-gray-300 px-3 py-1.5 text-sm border bg-white">
+                                <option value="IDR">IDR</option>
+                                <option value="USD">USD</option>
+                            </select>
+                            <button @click="hapusBiaya(index)" class="text-red-500 p-2 w-full sm:w-auto hover:bg-red-50 rounded"><i class="fa-solid fa-times"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="lg:col-span-1">
+                <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 text-white overflow-hidden h-full flex flex-col sticky top-6">
+                    <div class="bg-slate-900 px-5 py-4 border-b border-slate-700 font-bold text-lg text-brand-50">
+                        <i class="fa-solid fa-robot mr-2 text-brand-500"></i> Kebutuhan Armada Akhir
+                    </div>
+                    
+                    <div class="p-5 flex-grow space-y-4">
+                        
+                        <div class="bg-slate-700/40 rounded border border-slate-600 p-3 relative overflow-hidden">
+                            <div class="absolute -right-2 -bottom-4 opacity-20"><i class="fa-solid fa-excavator text-6xl"></i></div>
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs text-slate-400 uppercase font-bold">Produksi Utama (PC 200)</span>
+                            </div>
+                            <div class="text-2xl font-bold">{{ kebutuhanExca }} <span class="text-sm font-normal text-slate-400">Unit Exca</span></div>
+                        </div>
+
+                        <div class="bg-slate-700/40 rounded border border-slate-600 p-3 relative overflow-hidden">
+                            <div class="absolute -right-2 -bottom-2 opacity-20"><i class="fa-solid fa-truck-fast text-6xl"></i></div>
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs text-slate-400 uppercase font-bold">Hauling (Alat Angkut)</span>
+                            </div>
+                            <div class="text-2xl font-bold">{{ kebutuhanDT }} <span class="text-sm font-normal text-slate-400">Unit Dump Truck</span></div>
+                            <div class="text-[10px] text-brand-300 mt-1">Ratio: {{ ratioFleet }} DT melayani 1 Exca Produksi</div>
+                        </div>
+
+                        <div class="bg-slate-700/40 rounded border border-slate-600 p-3 border-l-4 border-l-purple-500">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs text-slate-400 uppercase font-bold">Total Unit Support</span>
+                            </div>
+                            <div class="text-xl font-bold">{{ totalUnitSupport }} <span class="text-sm font-normal text-slate-400">Unit Campuran</span></div>
+                        </div>
+
+                        <div class="flex justify-between text-sm text-slate-300 border-t border-slate-600 pt-3">
+                            <span>Karyawan Opr & Driver:</span>
+                            <span class="font-bold text-white bg-slate-700 px-2 py-0.5 rounded">{{ totalKaryawanOperasional }} Orang</span>
+                        </div>
+
+                        <hr class="border-slate-600 my-2">
+
+                        <div class="pt-2">
+                            <h3 class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2 text-center">Harga Pokok Produksi (HPP)</h3>
+                            <div class="text-center">
+                                <span class="block text-4xl font-bold text-green-400">{{ formatUSD(hppUSD) }}</span>
+                                <span class="block text-xs text-slate-400">Per Ton (USD)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+            <div class="bg-gradient-to-r from-slate-900 to-slate-800 px-6 py-4 border-b border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4">
+                <h2 class="font-bold text-xl text-white">
+                    <i class="fa-solid fa-file-invoice-dollar mr-2 text-brand-400"></i> Proyeksi Arus Kas Bulanan
+                </h2>
+                <div class="flex gap-4">
+                    <div class="bg-slate-700/50 px-3 py-1.5 rounded border border-slate-600 text-sm flex items-center">
+                        <span class="text-slate-300">Harga Jual (HPM): $</span>
+                        <input type="number" v-model.number="hargaJual" class="w-14 bg-transparent text-white font-bold ml-1 focus:outline-none border-b border-slate-400 text-center">/Ton
+                    </div>
+                    <div class="bg-slate-700/50 px-3 py-1.5 rounded border border-slate-600 text-sm flex items-center">
+                        <span class="text-slate-300">Royalti: </span>
+                        <input type="number" v-model.number="royalti" class="w-12 bg-transparent text-white font-bold ml-1 focus:outline-none border-b border-slate-400 text-center">%
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-6 overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[600px]">
+                    <thead>
+                        <tr class="border-b-2 border-gray-300 text-gray-500 uppercase text-xs">
+                            <th class="pb-2">Komponen Finansial</th>
+                            <th class="pb-2 text-right">Nilai USD ($)</th>
+                            <th class="pb-2 text-right">Nilai IDR (Rp)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm">
+                        <tr class="border-b border-gray-100 hover:bg-gray-50"><td class="py-3 font-semibold text-gray-800">Pendapatan Kotor (Revenue)</td><td class="py-3 text-right font-bold">{{ formatUSD(revenueUSD) }}</td><td class="py-3 text-right font-bold">{{ formatIDR(revenueIDR) }}</td></tr>
+                        <tr class="border-b border-gray-100 hover:bg-gray-50"><td class="py-3 text-gray-600">Total Biaya Operasional (OPEX)</td><td class="py-3 text-right text-red-600">- {{ formatUSD(totalOpexUSD) }}</td><td class="py-3 text-right text-red-600">- {{ formatIDR(totalOpexIDR) }}</td></tr>
+                        <tr class="border-b-2 border-gray-200 bg-gray-100"><td class="py-3 font-bold text-gray-800">Laba Kotor</td><td class="py-3 text-right font-bold">{{ formatUSD(grossProfitUSD) }}</td><td class="py-3 text-right font-bold">{{ formatIDR(grossProfitIDR) }}</td></tr>
+                        <tr class="border-b border-gray-100 hover:bg-gray-50"><td class="py-3 text-gray-600">Royalti PNBP ({{ royalti }}%)</td><td class="py-3 text-right text-orange-600">- {{ formatUSD(royaltiUSD) }}</td><td class="py-3 text-right text-orange-600">- {{ formatIDR(royaltiIDR) }}</td></tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-brand-50 border-t-2 border-brand-300">
+                            <td class="py-4 font-extrabold text-brand-900 text-lg">ARUS KAS BERSIH (Net Cash Flow)</td>
+                            <td class="py-4 text-right font-extrabold text-xl" :class="netCashFlowUSD < 0 ? 'text-red-600' : 'text-brand-700'">{{ formatUSD(netCashFlowUSD) }}</td>
+                            <td class="py-4 text-right font-extrabold text-xl" :class="netCashFlowIDR < 0 ? 'text-red-600' : 'text-brand-700'">{{ formatIDR(netCashFlowIDR) }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    // Makro & Umum
+                    kurs: 16000, 
+                    target: 50000, 
+                    hargaBBM: 0.8, 
+                    hariKerja: 30, 
+                    shiftHari: 2, 
+                    jamShift: 8, 
+                    
+                    // Harga Jual & Pajak
+                    hargaJual: 35, 
+                    royalti: 10,
+                    
+                    // Produksi Utama (PC 200)
+                    prodExcaShift: 700, 
+                    sewaExca: 4500,     
+                    bbmExca: 16,        
+                    gajiOperator: 9000000,
+                    
+                    // Hauling
+                    jarak: 15, kapasitasDT: 25, waktuMuat: 10, kecIsi: 20, kecKosong: 30, 
+                    bbmDT: 15, sewaDT: 4000, gajiDriver: 8000000,
+                    
+                    // Support Fleet
+                    supportFleet: [
+                        { nama: 'Motor Grader (Perawatan Jalan)', qty: 1, sewa: 4000, bbm: 14 },
+                        { nama: 'Bulldozer D85 (Disposal)', qty: 1, sewa: 6000, bbm: 20 }
+                    ],
+                    
+                    // Biaya Tambahan
+                    biayaTambahan: [
+                        { nama: 'Overburden Removal (OB) / Borongan', nominal: 150000, mataUang: 'USD' },
+                        { nama: 'Operasional Kamp & Katering', nominal: 150000000, mataUang: 'IDR' }
+                    ]
+                }
+            },
+            computed: {
+                totalJamBulan() { return (parseFloat(this.hariKerja) || 0) * (parseFloat(this.shiftHari) || 0) * (parseFloat(this.jamShift) || 0); },
+                totalShiftBulan() { return (parseFloat(this.hariKerja) || 0) * (parseFloat(this.shiftHari) || 0); },
+
+                // Kebutuhan Produksi Utama
+                kebutuhanExca() { 
+                    const targetExca = (parseFloat(this.prodExcaShift) || 0) * this.totalShiftBulan;
+                    if(targetExca === 0) return 0;
+                    return Math.ceil((parseFloat(this.target) || 0) / targetExca); 
+                },
+                
+                // Kebutuhan Hauling
+                cycleTimeDT() { return (parseFloat(this.waktuMuat) || 0) + ((parseFloat(this.jarak)/parseFloat(this.kecIsi))*60 || 0) + ((parseFloat(this.jarak)/parseFloat(this.kecKosong))*60 || 0); },
+                kebutuhanDT() { 
+                    if(this.cycleTimeDT === 0) return 0;
+                    const prod1DTBulan = (((parseFloat(this.jamShift) || 0)*60)/this.cycleTimeDT) * (parseFloat(this.kapasitasDT) || 0) * this.totalShiftBulan;
+                    return Math.ceil((parseFloat(this.target) || 0) / prod1DTBulan) || 0;
+                },
+                ratioFleet() { return this.kebutuhanExca === 0 ? 0 : (this.kebutuhanDT / this.kebutuhanExca).toFixed(1); },
+
+                // Total Karyawan & Support
+                totalUnitSupport() { return this.supportFleet.reduce((sum, item) => sum + (parseFloat(item.qty) || 0), 0); },
+                totalKaryawanOperasional() { 
+                    const totalAlat = this.kebutuhanExca + this.kebutuhanDT + this.totalUnitSupport;
+                    return totalAlat * (parseFloat(this.shiftHari) || 0); 
+                },
+
+                // OPEX ALAT
+                biayaSewaTotalUSD() {
+                    const sewaProd = this.kebutuhanExca * (parseFloat(this.sewaExca) || 0);
+                    const sewaHaul = this.kebutuhanDT * (parseFloat(this.sewaDT) || 0);
+                    const sewaSupport = this.supportFleet.reduce((sum, item) => sum + ((parseFloat(item.qty) || 0) * (parseFloat(item.sewa) || 0)), 0);
+                    return sewaProd + sewaHaul + sewaSupport;
+                },
+                biayaBBMTotalUSD() {
+                    const ltrProd = this.kebutuhanExca * (parseFloat(this.bbmExca) || 0);
+                    const ltrHaul = this.kebutuhanDT * (parseFloat(this.bbmDT) || 0);
+                    const ltrSupport = this.supportFleet.reduce((sum, item) => sum + ((parseFloat(item.qty) || 0) * (parseFloat(item.bbm) || 0)), 0);
+                    return (ltrProd + ltrHaul + ltrSupport) * this.totalJamBulan * (parseFloat(this.hargaBBM) || 0);
+                },
+                biayaGajiTotalIDR() {
+                    const gajiOprProd = this.kebutuhanExca * (parseFloat(this.shiftHari)||0) * (parseFloat(this.gajiOperator)||0);
+                    const gajiOprSupport = this.totalUnitSupport * (parseFloat(this.shiftHari)||0) * (parseFloat(this.gajiOperator)||0);
+                    const gajiDrv = this.kebutuhanDT * (parseFloat(this.shiftHari)||0) * (parseFloat(this.gajiDriver)||0);
+                    return gajiOprProd + gajiOprSupport + gajiDrv;
+                },
+
+                // Total Keseluruhan
+                totalTambahanUSD() { return this.biayaTambahan.filter(i => i.mataUang === 'USD').reduce((s, i) => s + (parseFloat(i.nominal) || 0), 0); },
+                totalTambahanIDR() { return this.biayaTambahan.filter(i => i.mataUang === 'IDR').reduce((s, i) => s + (parseFloat(i.nominal) || 0), 0); },
+                totalOpexUSD() {
+                    const k = parseFloat(this.kurs) || 1;
+                    return this.biayaSewaTotalUSD + this.biayaBBMTotalUSD + (this.biayaGajiTotalIDR / k) + this.totalTambahanUSD + (this.totalTambahanIDR / k);
+                },
+                totalOpexIDR() { return this.totalOpexUSD * (parseFloat(this.kurs) || 0); },
+                
+                hppUSD() { return this.target > 0 ? this.totalOpexUSD / parseFloat(this.target) : 0; },
+                hppIDR() { return this.target > 0 ? this.totalOpexIDR / parseFloat(this.target) : 0; },
+
+                // Cash Flow
+                revenueUSD() { return (parseFloat(this.target) || 0) * (parseFloat(this.hargaJual) || 0); },
+                revenueIDR() { return this.revenueUSD * (parseFloat(this.kurs) || 0); },
+                grossProfitUSD() { return this.revenueUSD - this.totalOpexUSD; },
+                grossProfitIDR() { return this.grossProfitUSD * (parseFloat(this.kurs) || 0); },
+                royaltiUSD() { return this.revenueUSD * ((parseFloat(this.royalti) || 0) / 100); },
+                royaltiIDR() { return this.royaltiUSD * (parseFloat(this.kurs) || 0); },
+                netCashFlowUSD() { return this.grossProfitUSD - this.royaltiUSD; },
+                netCashFlowIDR() { return this.netCashFlowUSD * (parseFloat(this.kurs) || 0); }
+            },
+            methods: {
+                tambahAlatSupport() { this.supportFleet.push({ nama: '', qty: 1, sewa: null, bbm: null }); },
+                hapusAlatSupport(index) { this.supportFleet.splice(index, 1); },
+                tambahBiaya() { this.biayaTambahan.push({ nama: '', nominal: null, mataUang: 'USD' }); },
+                hapusBiaya(index) { this.biayaTambahan.splice(index, 1); },
+                formatUSD(v) { return isNaN(v)||v===null ? '$0.00' : (v<0?'-':'') + new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Math.abs(v)); },
+                formatIDR(v) { return isNaN(v)||v===null ? 'Rp 0' : (v<0?'-':'') + new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Math.abs(v)); },
+                
+                // EXPORT LOGIC MENGGUNAKAN SHEETJS
+                exportToExcel() {
+                    const data = [
+                        ["RAB & PROYEKSI ARUS KAS TAMBANG NIKEL (BASIS PC 200)"],
+                        [],
+                        ["1. ASUMSI UTAMA & TARGET OPERASIONAL", "Nilai", "Satuan"],
+                        ["Target Produksi Bulanan", this.target, "Ton"],
+                        ["Harga Jual Nikel / HPM", this.hargaJual, "USD/Ton"],
+                        ["Harga BBM Solar Industri", this.hargaBBM, "USD/Liter"],
+                        ["Kurs Acuan IDR ke USD", this.kurs, "IDR"],
+                        ["Hari Kerja per Bulan", this.hariKerja, "Hari"],
+                        ["Shift per Hari", this.shiftHari, "Shift"],
+                        ["Jam Kerja Efektif per Shift", this.jamShift, "Jam"],
+                        [],
+                        ["2. KEBUTUHAN ARMADA & TENAGA KERJA", "Jumlah", "Keterangan"],
+                        ["Alat Gali/Muat Produksi (PC 200)", this.kebutuhanExca, "Unit"],
+                        ["Alat Angkut Hauling (Dump Truck)", this.kebutuhanDT, "Unit"],
+                        ["Total Unit Support Lainnya", this.totalUnitSupport, "Unit"],
+                        ["Total Tenaga Kerja Operasional (Opr/Drv)", this.totalKaryawanOperasional, "Orang"],
+                        [],
+                        ["3. PROYEKSI ARUS KAS BULANAN", "Nilai USD ($)", "Nilai IDR (Rp)"],
+                        ["Pendapatan Kotor (Revenue)", this.revenueUSD, this.revenueIDR],
+                        ["Total Biaya Operasional (OPEX)", -this.totalOpexUSD, -this.totalOpexIDR],
+                        ["Laba Kotor (Gross Profit)", this.grossProfitUSD, this.grossProfitIDR],
+                        [`Royalti PNBP (${this.royalti}%)`, -this.royaltiUSD, -this.royaltiIDR],
+                        ["ARUS KAS BERSIH (Net Cash Flow)", this.netCashFlowUSD, this.netCashFlowIDR],
+                        [],
+                        ["4. HARGA POKOK PRODUKSI (HPP)", "Nilai USD ($)", "Nilai IDR (Rp)"],
+                        ["HPP per Ton", this.hppUSD, this.hppIDR]
+                    ];
+                    
+                    // Membuat Worksheet
+                    const ws = XLSX.utils.aoa_to_sheet(data);
+                    
+                    // Membuat Workbook
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "RAB_Nikel");
+                    
+                    // Export file otomatis terunduh di perangkat
+                    XLSX.writeFile(wb, `RAB_Nikel_${this.target}Ton.xlsx`);
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
